@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { petCreateSchema, PetCreate } from "@/lib/validators/pet";
 import { usePetsStore } from "@/store/pets";
@@ -144,7 +144,7 @@ export default function AddPetForm({ onClose }: { onClose: () => void }) {
 					step="0.1"
 					placeholder="1.2"
 					className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none border border-transparent focus:border-indigo-200 focus:ring-1 focus:ring-indigo-100 transition-all"
-					{...(register("weight") as any)}
+					{...(register("weight") as Record<string, unknown>)}
 				/>
 				{errors.weight && (
 					<p className="text-rose-500 text-xs mt-1 font-bold">
