@@ -1959,7 +1959,7 @@ function CertificatesModal({
 							return (
 								<label
 									key={cert.id}
-									className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+									className={`block p-4 rounded-2xl border-2 cursor-pointer transition-all ${
 										selectedType === cert.id
 											? "border-indigo-600 bg-indigo-50"
 											: "border-slate-200 bg-slate-50 hover:border-indigo-300"
