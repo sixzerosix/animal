@@ -36,6 +36,71 @@ import {
 	ChevronLeft,
 } from "lucide-react";
 
+// --- TYPES ---
+type MedicalRecord = {
+	id: string;
+	date: string;
+	diagnosis: string;
+	doctor: string;
+	treatment: string;
+	file?: string;
+};
+
+type Reminder = {
+	id: string;
+	type: string;
+	date: string;
+	completed: boolean;
+	category: string;
+};
+
+type Pet = {
+	id: string;
+	name: string;
+	species?: string;
+	breed?: string;
+	birth_date?: string;
+	gender?: string;
+	weight?: number;
+	activity_level?: string;
+	photo_url?: string;
+	medical_history: MedicalRecord[];
+	reminders: Reminder[];
+};
+
+type ShopItem = {
+	id: string;
+	name: string;
+	price: number;
+	category: string;
+	img?: string;
+};
+
+type Appointment = {
+	id: string;
+	petName: string;
+	doctor: string;
+	date: string;
+	time: string;
+	status: string;
+	type: string;
+};
+
+type NotificationItem = {
+	id: number;
+	text: string;
+	time: string;
+	read: boolean;
+};
+
+type ModalsMap = {
+	addPet: boolean;
+	booking: boolean;
+	grooming: boolean;
+	consultation: boolean;
+	cart: boolean;
+};
+
 // --- ИНИЦИАЛИЗАЦИЯ ДАННЫХ ---
 const INITIAL_PETS = [
 	{
@@ -78,7 +143,7 @@ const INITIAL_PETS = [
 	},
 ];
 
-const SHOP_ITEMS = [
+const SHOP_ITEMS: ShopItem[] = [
 	{
 		id: "s1",
 		name: "Premium Cat Food",
@@ -110,10 +175,10 @@ const SHOP_ITEMS = [
 ];
 
 export default function App() {
-	const [pets, setPets] = useState(INITIAL_PETS);
-	const [activeTab, setActiveTab] = useState("dashboard");
-	const [selectedPetId, setSelectedPetId] = useState(null);
-	const [appointments, setAppointments] = useState([
+	const [pets, setPets] = useState<Pet[]>(INITIAL_PETS as Pet[]);
+	const [activeTab, setActiveTab] = useState<string>("dashboard");
+	const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+	const [appointments, setAppointments] = useState<Appointment[]>([
 		{
 			id: "a1",
 			petName: "Барсик",
@@ -123,9 +188,9 @@ export default function App() {
 			status: "confirmed",
 			type: "clinic",
 		},
-	]);
-	const [cart, setCart] = useState([]);
-	const [notifications, setNotifications] = useState([
+		]);
+	const [cart, setCart] = useState<ShopItem[]>([]);
+	const [notifications, setNotifications] = useState<NotificationItem[]>([
 		{
 			id: 1,
 			text: "Пора кормить Барсика",
@@ -140,7 +205,7 @@ export default function App() {
 		},
 	]);
 
-	const [modals, setModals] = useState({
+	const [modals, setModals] = useState<ModalsMap>({
 		addPet: false,
 		booking: false,
 		grooming: false,
@@ -148,17 +213,23 @@ export default function App() {
 		cart: false,
 	});
 
-	const selectedPet = useMemo(
+	const selectedPet = useMemo<Pet | undefined>(
 		() => pets.find((p) => p.id === selectedPetId),
 		[pets, selectedPetId]
 	);
 
-	const toggleModal = (name, val) =>
+	const toggleModal = (name: keyof ModalsMap, val: boolean) =>
 		setModals((prev) => ({ ...prev, [name]: val }));
 
 	// Обработка создания записи
-	const handleCreateAppointment = (data) => {
-		const newAppt = {
+	const handleCreateAppointment = (data: {
+		petName?: string;
+		doctor?: string;
+		date?: string;
+		time?: string;
+		type?: string;
+	}) => {
+		const newAppt: Appointment = {
 			id: Date.now().toString(),
 			petName: data.petName || "Питомец",
 			doctor: data.doctor || "Ветеринар",
@@ -168,12 +239,14 @@ export default function App() {
 			type: data.type || "clinic",
 		};
 		setAppointments((prev) => [newAppt, ...prev]);
-		Object.keys(modals).forEach((m) => toggleModal(m, false));
+		(Object.keys(modals) as (keyof ModalsMap)[]).forEach((m) =>
+			toggleModal(m, false)
+		);
 		setActiveTab("appointments");
 	};
 
 	// Удаление питомца
-	const handleDeletePet = (id) => {
+	const handleDeletePet = (id: string) => {
 		if (confirm("Вы уверены, что хотите удалить профиль питомца?")) {
 			setPets((prev) => prev.filter((p) => p.id !== id));
 			setSelectedPetId(null);
@@ -181,7 +254,7 @@ export default function App() {
 	};
 
 	// Работа с корзиной
-	const addToCart = (item) => {
+	const addToCart = (item: ShopItem) => {
 		setCart((prev) => [...prev, item]);
 		// Маленькое уведомление (имитация)
 		setNotifications((prev) => [
@@ -458,7 +531,13 @@ export default function App() {
 
 // --- КОМПОНЕНТЫ ---
 
-function NavItem({ icon: Icon, label, active, onClick, badge }) {
+function NavItem({ icon: Icon, label, active, onClick, badge }: {
+	icon: React.ComponentType<any>;
+	label: string;
+	active?: boolean;
+	onClick?: () => void;
+	badge?: number;
+}) {
 	return (
 		<button
 			onClick={onClick}
@@ -470,7 +549,7 @@ function NavItem({ icon: Icon, label, active, onClick, badge }) {
 		>
 			<Icon size={22} className="shrink-0" />
 			<span className="font-bold text-sm hidden lg:block">{label}</span>
-			{badge > 0 && !active && (
+			{(badge ?? 0) > 0 && !active && (
 				<span className="absolute right-4 top-1/2 -translate-y-1/2 bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
 					{badge}
 				</span>
@@ -479,7 +558,7 @@ function NavItem({ icon: Icon, label, active, onClick, badge }) {
 	);
 }
 
-function WelcomeHeader({ onAddPet }) {
+function WelcomeHeader({ onAddPet }: { onAddPet: () => void }) {
 	return (
 		<div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
 			<div>
@@ -500,7 +579,11 @@ function WelcomeHeader({ onAddPet }) {
 	);
 }
 
-function DashboardContent({ pets, onPetSelect, onConsult }) {
+function DashboardContent({ pets, onPetSelect, onConsult }: {
+	pets: Pet[];
+	onPetSelect: (id: string) => void;
+	onConsult: () => void;
+}) {
 	return (
 		<div className="space-y-10">
 			<section>
@@ -609,6 +692,13 @@ function PetFullProfile({
 	onGrooming,
 	onConsult,
 	onDelete,
+}: {
+	pet: Pet;
+	onBack: () => void;
+	onBook: () => void;
+	onGrooming: () => void;
+	onConsult: () => void;
+	onDelete: () => void;
 }) {
 	const [activeTab, setActiveTab] = useState("medical");
 
@@ -719,7 +809,12 @@ function PetFullProfile({
 	);
 }
 
-function TabButton({ active, onClick, label, icon: Icon }) {
+function TabButton({ active, onClick, label, icon: Icon }: {
+	active?: boolean;
+	onClick?: () => void;
+	label: string;
+	icon: React.ComponentType<any>;
+}) {
 	return (
 		<button
 			onClick={onClick}
@@ -734,7 +829,7 @@ function TabButton({ active, onClick, label, icon: Icon }) {
 	);
 }
 
-function MedicalTab({ pet }) {
+function MedicalTab({ pet }: { pet: Pet }) {
 	return (
 		<div className="space-y-8 animate-in fade-in duration-300">
 			<h3 className="text-2xl font-black text-slate-800">
@@ -777,7 +872,7 @@ function MedicalTab({ pet }) {
 	);
 }
 
-function HistoryTab({ pet }) {
+function HistoryTab({ pet }: { pet: Pet }) {
 	return (
 		<div className="space-y-4 animate-in fade-in duration-300">
 			<h3 className="text-2xl font-black mb-6">События и напоминания</h3>
@@ -826,7 +921,7 @@ function HistoryTab({ pet }) {
 	);
 }
 
-function AppointmentsView({ appointments }) {
+function AppointmentsView({ appointments }: { appointments: Appointment[] }) {
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
 			<h2 className="text-3xl font-black">Ваш календарь</h2>
@@ -912,8 +1007,8 @@ function AppointmentsView({ appointments }) {
 	);
 }
 
-function ShopView({ items, onAddToCart }) {
-	const [filter, setFilter] = useState("Все");
+function ShopView({ items, onAddToCart }: { items: ShopItem[]; onAddToCart: (item: ShopItem) => void }) {
+	const [filter, setFilter] = useState<string>("Все");
 	const categories = ["Все", ...new Set(items.map((i) => i.category))];
 
 	const filtered =
@@ -978,7 +1073,7 @@ function ShopView({ items, onAddToCart }) {
 }
 
 function SocialFeed() {
-	const [liked, setLiked] = useState({});
+	const [liked, setLiked] = useState<Record<number, boolean>>({});
 	const posts = [
 		{
 			id: 1,
@@ -998,7 +1093,7 @@ function SocialFeed() {
 		},
 	];
 
-	const handleLike = (id) => {
+	const handleLike = (id: number) => {
 		setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
 	};
 
@@ -1075,7 +1170,7 @@ function SocialFeed() {
 	);
 }
 
-function NotificationsView({ list, onClear }) {
+function NotificationsView({ list, onClear }: { list: NotificationItem[]; onClear: () => void }) {
 	return (
 		<div className="max-w-xl mx-auto space-y-6">
 			<div className="flex items-center justify-between">
@@ -1161,7 +1256,7 @@ function SettingsView() {
 	);
 }
 
-function SettingItem({ icon: Icon, label, value }) {
+function SettingItem({ icon: Icon, label, value }: { icon: React.ComponentType<any>; label: string; value?: string }) {
 	return (
 		<div className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors group">
 			<div className="flex items-center gap-4">
@@ -1183,7 +1278,7 @@ function SettingItem({ icon: Icon, label, value }) {
 	);
 }
 
-function TelemedView({ onConsult }) {
+function TelemedView({ onConsult }: { onConsult: () => void }) {
 	return (
 		<div className="bg-indigo-900 rounded-[3rem] p-16 text-center text-white relative overflow-hidden shadow-2xl animate-in zoom-in duration-500">
 			<div className="absolute top-0 right-0 w-64 h-64 bg-indigo-800 rounded-full -mr-20 -mt-20 opacity-50" />
@@ -1209,7 +1304,7 @@ function TelemedView({ onConsult }) {
 	);
 }
 
-function GroomingHomeView({ onOrder }) {
+function GroomingHomeView({ onOrder }: { onOrder: () => void }) {
 	return (
 		<div className="bg-white rounded-[3rem] border-4 border-dashed border-indigo-100 p-12 text-center animate-in fade-in duration-500">
 			<div className="w-24 h-24 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8">
@@ -1234,7 +1329,7 @@ function GroomingHomeView({ onOrder }) {
 
 // --- MODALS (ВНУТРЕННИЕ) ---
 
-function CartModal({ items, onClose, onRemove }) {
+function CartModal({ items, onClose, onRemove }: { items: ShopItem[]; onClose: () => void; onRemove: (idx: number) => void }) {
 	const total = items.reduce((sum, i) => sum + i.price, 0);
 	return (
 		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-end">
@@ -1306,12 +1401,12 @@ function CartModal({ items, onClose, onRemove }) {
 	);
 }
 
-function BookingModal({ type, pets, onClose, onSave }) {
-	const [selectedPet, setSelectedPet] = useState(pets[0]?.id || "");
-	const [date, setDate] = useState("");
-	const [time, setTime] = useState("10:00");
+function BookingModal({ type, pets, onClose, onSave }: { type: string; pets: Pet[]; onClose: () => void; onSave: (data: { petName?: string; doctor?: string; date?: string; time?: string; type?: string }) => void }) {
+	const [selectedPet, setSelectedPet] = useState<string>(pets[0]?.id || "");
+	const [date, setDate] = useState<string>("");
+	const [time, setTime] = useState<string>("10:00");
 
-	const handleSubmit = (e) => {
+	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		if (!date) return alert("Пожалуйста, выберите дату");
 		const pet = pets.find((p) => p.id === selectedPet);
@@ -1379,7 +1474,7 @@ function BookingModal({ type, pets, onClose, onSave }) {
 								required
 								className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100"
 								value={date}
-								onChange={(e) => setDate(e.target.value)}
+								onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
 							/>
 						</div>
 						<div>
@@ -1391,7 +1486,7 @@ function BookingModal({ type, pets, onClose, onSave }) {
 								required
 								className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100"
 								value={time}
-								onChange={(e) => setTime(e.target.value)}
+								onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTime(e.target.value)}
 							/>
 						</div>
 					</div>
@@ -1414,12 +1509,12 @@ function BookingModal({ type, pets, onClose, onSave }) {
 	);
 }
 
-function AddPetModal({ onClose, onSave }) {
-	const [name, setName] = useState("");
-	const [breed, setBreed] = useState("");
-	const [gender, setGender] = useState("Мужской");
+function AddPetModal({ onClose, onSave }: { onClose: () => void; onSave: (p: { name: string; breed: string; gender: string; photo_url: string; weight: number }) => void }) {
+	const [name, setName] = useState<string>("");
+	const [breed, setBreed] = useState<string>("");
+	const [gender, setGender] = useState<string>("Мужской");
 
-	const handleSubmit = (e) => {
+	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		if (!name || !breed) return alert("Заполните все поля");
 		onSave({
@@ -1456,14 +1551,14 @@ function AddPetModal({ onClose, onSave }) {
 								required
 								className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none border border-transparent focus:border-indigo-200"
 								value={name}
-								onChange={(e) => setName(e.target.value)}
+								onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
 							/>
 							<input
 								placeholder="Порода"
 								required
 								className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none border border-transparent focus:border-indigo-200"
 								value={breed}
-								onChange={(e) => setBreed(e.target.value)}
+								onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBreed(e.target.value)}
 							/>
 						</div>
 					</div>
@@ -1513,7 +1608,7 @@ function AddPetModal({ onClose, onSave }) {
 }
 
 // Заглушка для Globe, так как в lucide-react не всегда есть в списке быстрого импорта
-function Globe(props) {
+function Globe(props: React.SVGProps<SVGSVGElement>) {
 	return (
 		<svg
 			{...props}
