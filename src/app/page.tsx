@@ -213,10 +213,24 @@ export default function App() {
 		cart: false,
 	});
 
+	// mobile menu state for small screens
+	const [mobileOpen, setMobileOpen] = useState<boolean>(false);
+
 	const selectedPet = useMemo<Pet | undefined>(
 		() => pets.find((p) => p.id === selectedPetId),
 		[pets, selectedPetId]
 	);
+
+	// titles for non-dashboard sections
+	const sectionTitles: Record<string, string> = {
+		shop: "Маркет VetCloud",
+		appointments: "Ваш календарь",
+		social: "Сообщество",
+		telemed: "Телемедицина",
+		grooming_tab: "Груминг",
+		notifications: "Уведомления",
+		settings: "Настройки",
+	};
 
 	const toggleModal = (name: keyof ModalsMap, val: boolean) =>
 		setModals((prev) => ({ ...prev, [name]: val }));
@@ -373,7 +387,13 @@ export default function App() {
 			<main className="flex-1 min-w-0">
 				<header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 lg:px-10 py-4 flex items-center justify-between">
 					<div className="md:hidden flex items-center gap-3">
-						<Menu className="text-slate-500" />
+						<button
+							onClick={() => setMobileOpen(true)}
+							aria-label="Open menu"
+							className="p-1 rounded-md"
+						>
+							<Menu className="text-slate-500" />
+						</button>
 						<span className="font-black text-xl">VetCloud</span>
 					</div>
 
@@ -425,9 +445,17 @@ export default function App() {
 						/>
 					) : (
 						<div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-							<WelcomeHeader
-								onAddPet={() => toggleModal("addPet", true)}
-							/>
+								{activeTab === "dashboard" ? (
+									<WelcomeHeader
+										onAddPet={() => toggleModal("addPet", true)}
+									/>
+								) : (
+									<div className="flex items-center justify-between mb-6">
+										<h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">
+											{sectionTitles[activeTab] || ""}
+										</h1>
+									</div>
+								)}
 
 							{activeTab === "dashboard" && (
 								<DashboardContent
@@ -442,10 +470,11 @@ export default function App() {
 								<ShopView
 									items={SHOP_ITEMS}
 									onAddToCart={addToCart}
+									hideTitle
 								/>
 							)}
 							{activeTab === "appointments" && (
-								<AppointmentsView appointments={appointments} />
+								<AppointmentsView appointments={appointments} hideTitle />
 							)}
 							{activeTab === "social" && <SocialFeed />}
 							{activeTab === "telemed" && (
@@ -453,6 +482,7 @@ export default function App() {
 									onConsult={() =>
 										toggleModal("consultation", true)
 									}
+									hideTitle
 								/>
 							)}
 							{activeTab === "grooming_tab" && (
@@ -460,18 +490,109 @@ export default function App() {
 									onOrder={() =>
 										toggleModal("grooming", true)
 									}
+									hideTitle
 								/>
 							)}
 							{activeTab === "notifications" && (
 								<NotificationsView
 									list={notifications}
 									onClear={() => setNotifications([])}
+									hideTitle
 								/>
 							)}
-							{activeTab === "settings" && <SettingsView />}
+							{activeTab === "settings" && <SettingsView hideTitle />}
 						</div>
 					)}
 				</div>
+
+				{/* Mobile drawer */}
+				{mobileOpen && (
+					<div className="md:hidden fixed inset-0 z-50 flex">
+						{/* Drawer */}
+						<aside className="w-72 bg-white border-r border-slate-200 p-6 overflow-y-auto">
+							<div className="flex items-center gap-3 mb-6">
+								<div className="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-xl shrink-0">
+									<Heart size={24} fill="currentColor" />
+								</div>
+								<span className="text-2xl font-black tracking-tight text-slate-800">VetCloud</span>
+								<button
+									onClick={() => setMobileOpen(false)}
+									className="ml-auto p-2 rounded-lg"
+								>
+									<X size={20} />
+								</button>
+							</div>
+
+							<div className="space-y-1">
+								<NavItem
+									icon={Activity}
+									label="Дашборд"
+									active={activeTab === "dashboard"}
+									onClick={() => {
+										setActiveTab("dashboard");
+										setSelectedPetId(null);
+										setMobileOpen(false);
+									}}
+								/>
+								<NavItem
+									icon={Calendar}
+									label="Приемы"
+									active={activeTab === "appointments"}
+									onClick={() => {
+										setActiveTab("appointments");
+										setMobileOpen(false);
+									}}
+								/>
+								<NavItem
+									icon={Video}
+									label="Консультации"
+									active={activeTab === "telemed"}
+									onClick={() => {
+										setActiveTab("telemed");
+										setMobileOpen(false);
+									}}
+								/>
+								<NavItem
+									icon={ShoppingBag}
+									label="Магазин"
+									active={activeTab === "shop"}
+									onClick={() => {
+										setActiveTab("shop");
+										setMobileOpen(false);
+									}}
+								/>
+								<div className="my-6 border-t border-slate-100" />
+								<NavItem
+									icon={Bell}
+									label="Уведомления"
+									badge={notifications.filter((n) => !n.read).length}
+									onClick={() => {
+										setActiveTab("notifications");
+										setMobileOpen(false);
+									}}
+								/>
+								<NavItem
+									icon={Settings}
+									label="Настройки"
+									onClick={() => {
+										setActiveTab("settings");
+										setMobileOpen(false);
+									}}
+								/>
+							</div>
+
+							<div className="mt-6">
+								<div className="bg-slate-900 rounded-[2rem] p-5 text-white">
+									<p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">VetPass Plus</p>
+									<p className="text-sm font-bold mb-4">Бесплатные выезды и скидки 15%</p>
+									<button className="w-full py-2 bg-indigo-500 hover:bg-indigo-400 rounded-xl text-xs font-bold">Улучшить тариф</button>
+								</div>
+							</div>
+						</aside>
+						{/* Backdrop */}
+						<div className="flex-1" onClick={() => setMobileOpen(false)} />
+					</div>
+				)}
 			</main>
 
 			{/* MODALS */}
@@ -921,10 +1042,10 @@ function HistoryTab({ pet }: { pet: Pet }) {
 	);
 }
 
-function AppointmentsView({ appointments }: { appointments: Appointment[] }) {
+function AppointmentsView({ appointments, hideTitle }: { appointments: Appointment[]; hideTitle?: boolean }) {
 	return (
 		<div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-			<h2 className="text-3xl font-black">Ваш календарь</h2>
+			{!hideTitle && <h2 className="text-3xl font-black">Ваш календарь</h2>}
 			<div className="grid gap-4">
 				{appointments.length === 0 ? (
 					<div className="p-12 text-center text-slate-400 font-bold">
@@ -1007,7 +1128,7 @@ function AppointmentsView({ appointments }: { appointments: Appointment[] }) {
 	);
 }
 
-function ShopView({ items, onAddToCart }: { items: ShopItem[]; onAddToCart: (item: ShopItem) => void }) {
+function ShopView({ items, onAddToCart, hideTitle }: { items: ShopItem[]; onAddToCart: (item: ShopItem) => void; hideTitle?: boolean }) {
 	const [filter, setFilter] = useState<string>("Все");
 	const categories = ["Все", ...new Set(items.map((i) => i.category))];
 
@@ -1017,7 +1138,7 @@ function ShopView({ items, onAddToCart }: { items: ShopItem[]; onAddToCart: (ite
 	return (
 		<div className="animate-in fade-in duration-500 space-y-8">
 			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-				<h2 className="text-3xl font-black">Маркет VetCloud</h2>
+				{!hideTitle && <h2 className="text-3xl font-black">Маркет VetCloud</h2>}
 				<div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
 					{categories.map((c) => (
 						<button
@@ -1170,11 +1291,11 @@ function SocialFeed() {
 	);
 }
 
-function NotificationsView({ list, onClear }: { list: NotificationItem[]; onClear: () => void }) {
+function NotificationsView({ list, onClear, hideTitle }: { list: NotificationItem[]; onClear: () => void; hideTitle?: boolean }) {
 	return (
 		<div className="max-w-xl mx-auto space-y-6">
 			<div className="flex items-center justify-between">
-				<h2 className="text-3xl font-black">Уведомления</h2>
+				{!hideTitle && <h2 className="text-3xl font-black">Уведомления</h2>}
 				<button
 					onClick={onClear}
 					className="text-xs font-black text-rose-500 hover:underline"
@@ -1212,10 +1333,10 @@ function NotificationsView({ list, onClear }: { list: NotificationItem[]; onClea
 	);
 }
 
-function SettingsView() {
+function SettingsView({ hideTitle }: { hideTitle?: boolean }) {
 	return (
 		<div className="max-w-2xl mx-auto bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
-			<h2 className="text-3xl font-black mb-10">Настройки аккаунта</h2>
+			{!hideTitle && <h2 className="text-3xl font-black mb-10">Настройки аккаунта</h2>}
 			<div className="space-y-8">
 				<div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
 					<div className="flex items-center gap-4">
@@ -1278,7 +1399,7 @@ function SettingItem({ icon: Icon, label, value }: { icon: React.ComponentType<a
 	);
 }
 
-function TelemedView({ onConsult }: { onConsult: () => void }) {
+function TelemedView({ onConsult, hideTitle }: { onConsult: () => void; hideTitle?: boolean }) {
 	return (
 		<div className="bg-indigo-900 rounded-[3rem] p-16 text-center text-white relative overflow-hidden shadow-2xl animate-in zoom-in duration-500">
 			<div className="absolute top-0 right-0 w-64 h-64 bg-indigo-800 rounded-full -mr-20 -mt-20 opacity-50" />
@@ -1288,7 +1409,7 @@ function TelemedView({ onConsult }: { onConsult: () => void }) {
 				<div className="w-24 h-24 bg-white/10 backdrop-blur-md rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border border-white/20">
 					<Video size={48} className="text-white" />
 				</div>
-				<h2 className="text-4xl font-black mb-4">Телемедицина 24/7</h2>
+				{!hideTitle && <h2 className="text-4xl font-black mb-4">Телемедицина 24/7</h2>}
 				<p className="max-w-md mx-auto text-indigo-100 font-medium mb-10 opacity-80">
 					Дежурный ветеринар ответит вам в течение 5 минут. Помощь
 					рядом, где бы вы ни находились.
@@ -1304,15 +1425,17 @@ function TelemedView({ onConsult }: { onConsult: () => void }) {
 	);
 }
 
-function GroomingHomeView({ onOrder }: { onOrder: () => void }) {
+function GroomingHomeView({ onOrder, hideTitle }: { onOrder: () => void; hideTitle?: boolean }) {
 	return (
 		<div className="bg-white rounded-[3rem] border-4 border-dashed border-indigo-100 p-12 text-center animate-in fade-in duration-500">
 			<div className="w-24 h-24 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8">
 				<Home size={48} className="text-indigo-600" />
 			</div>
-			<h2 className="text-4xl font-black text-slate-900 mb-4">
-				Груминг с выездом на дом
-			</h2>
+			{!hideTitle && (
+				<h2 className="text-4xl font-black text-slate-900 mb-4">
+					Груминг с выездом на дом
+				</h2>
+			)}
 			<p className="max-w-md mx-auto text-slate-500 font-bold mb-10">
 				Наши мастера привезут всё необходимое оборудование с собой.
 				Питомец в безопасности — дома.
