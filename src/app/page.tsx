@@ -1,6 +1,25 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { usePetsStore } from "@/store/pets";
+import { useAppointmentsStore } from "@/store/appointments";
+import { useCartStore } from "@/store/cart";
+import { useNotificationsStore } from "@/store/notifications";
+import { MobileDrawer } from "@/components/MobileDrawer";
+import AddPetForm from "@/features/pets/AddPetForm";
+import { BookingModal } from "@/features/bookings/BookingModal";
+import { CartModal } from "@/features/shop/CartModal";
+import { Toaster, toast } from "sonner";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
 	Plus,
 	Calendar,
@@ -35,6 +54,9 @@ import {
 	LogOut,
 	ChevronLeft,
 } from "lucide-react";
+import { Appointment } from "@/store/appointments";
+import { ShopItem } from "@/store/cart";
+import { NotificationItem } from "@/store/notifications";
 
 // --- TYPES ---
 type MedicalRecord = {
@@ -68,37 +90,14 @@ type Pet = {
 	reminders: Reminder[];
 };
 
-type ShopItem = {
-	id: string;
-	name: string;
-	price: number;
-	category: string;
-	img?: string;
-};
-
-type Appointment = {
-	id: string;
-	petName: string;
-	doctor: string;
-	date: string;
-	time: string;
-	status: string;
-	type: string;
-};
-
-type NotificationItem = {
-	id: number;
-	text: string;
-	time: string;
-	read: boolean;
-};
-
 type ModalsMap = {
 	addPet: boolean;
 	booking: boolean;
 	grooming: boolean;
 	consultation: boolean;
 	cart: boolean;
+	certificates: boolean;
+	vetpass: boolean;
 };
 
 // --- ИНИЦИАЛИЗАЦИЯ ДАННЫХ ---
@@ -175,35 +174,25 @@ const SHOP_ITEMS: ShopItem[] = [
 ];
 
 export default function App() {
-	const [pets, setPets] = useState<Pet[]>(INITIAL_PETS as Pet[]);
+	const pets = usePetsStore((s) => s.pets);
+	const setPetsStore = usePetsStore((s) => s.setPets);
+	const removePet = usePetsStore((s) => s.removePet);
+
+	const appointments = useAppointmentsStore((s) => s.appointments);
+	const addAppointment = useAppointmentsStore((s) => s.addAppointment);
+
+	const cart = useCartStore((s) => s.cart);
+	const addToCart = useCartStore((s) => s.addToCart);
+	const removeFromCart = useCartStore((s) => s.removeFromCart);
+
+	const notifications = useNotificationsStore((s) => s.notifications);
+	const addNotification = useNotificationsStore((s) => s.addNotification);
+	const clearAllNotifications = useNotificationsStore(
+		(s) => s.clearAllNotifications
+	);
+
 	const [activeTab, setActiveTab] = useState<string>("dashboard");
 	const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
-	const [appointments, setAppointments] = useState<Appointment[]>([
-		{
-			id: "a1",
-			petName: "Барсик",
-			doctor: "Иванов А.С. (Терапевт)",
-			date: "2024-03-20",
-			time: "14:30",
-			status: "confirmed",
-			type: "clinic",
-		},
-	]);
-	const [cart, setCart] = useState<ShopItem[]>([]);
-	const [notifications, setNotifications] = useState<NotificationItem[]>([
-		{
-			id: 1,
-			text: "Пора кормить Барсика",
-			time: "5 мин назад",
-			read: false,
-		},
-		{
-			id: 2,
-			text: "Запись к врачу завтра в 14:30",
-			time: "1 час назад",
-			read: false,
-		},
-	]);
 
 	const [modals, setModals] = useState<ModalsMap>({
 		addPet: false,
@@ -211,6 +200,8 @@ export default function App() {
 		grooming: false,
 		consultation: false,
 		cart: false,
+		certificates: false,
+		vetpass: false,
 	});
 
 	// mobile menu state for small screens
@@ -220,6 +211,11 @@ export default function App() {
 		() => pets.find((p) => p.id === selectedPetId),
 		[pets, selectedPetId]
 	);
+
+	// initialize store with initial data once
+	useEffect(() => {
+		if (pets.length === 0) setPetsStore(INITIAL_PETS as Pet[]);
+	}, []);
 
 	// titles for non-dashboard sections
 	const sectionTitles: Record<string, string> = {
@@ -243,7 +239,7 @@ export default function App() {
 		time?: string;
 		type?: string;
 	}) => {
-		const newAppt: Appointment = {
+		const newAppt = {
 			id: Date.now().toString(),
 			petName: data.petName || "Питомец",
 			doctor: data.doctor || "Ветеринар",
@@ -252,7 +248,7 @@ export default function App() {
 			status: "confirmed",
 			type: data.type || "clinic",
 		};
-		setAppointments((prev) => [newAppt, ...prev]);
+		addAppointment(newAppt);
 		(Object.keys(modals) as (keyof ModalsMap)[]).forEach((m) =>
 			toggleModal(m, false)
 		);
@@ -262,24 +258,95 @@ export default function App() {
 	// Удаление питомца
 	const handleDeletePet = (id: string) => {
 		if (confirm("Вы уверены, что хотите удалить профиль питомца?")) {
-			setPets((prev) => prev.filter((p) => p.id !== id));
+			removePet(id);
 			setSelectedPetId(null);
 		}
 	};
 
-	// Работа с корзиной
-	const addToCart = (item: ShopItem) => {
-		setCart((prev) => [...prev, item]);
+	// Работа с корзиной - обновлено для zustand
+	const handleAddToCart = (item: ShopItem) => {
+		addToCart(item);
 		// Маленькое уведомление (имитация)
-		setNotifications((prev) => [
-			{
+		addNotification({
+			id: Date.now(),
+			text: `Добавлено в корзину: ${item.name}`,
+			time: "сейчас",
+			read: false,
+		});
+	};
+
+	// Выполнение напоминания
+	const handleToggleReminder = (reminderId: string) => {
+		if (selectedPet) {
+			const updatedReminders = selectedPet.reminders.map((r) =>
+				r.id === reminderId ? { ...r, completed: !r.completed } : r
+			);
+			const updatedPet = { ...selectedPet, reminders: updatedReminders };
+			const updatedPets = pets.map((p) =>
+				p.id === selectedPet.id ? updatedPet : p
+			);
+			setPetsStore(updatedPets);
+		}
+	};
+
+	// Функция шаринга поста
+	const handleSharePost = (postId: number) => {
+		const postUrl = `${window.location.origin}?post=${postId}`;
+		navigator.clipboard
+			.writeText(postUrl)
+			.then(() => {
+				addNotification({
+					id: Date.now(),
+					text: "Ссылка скопирована в буфер обмена!",
+					time: "сейчас",
+					read: false,
+				});
+			})
+			.catch(() => {
+				addNotification({
+					id: Date.now(),
+					text: "Ошибка при копировании",
+					time: "сейчас",
+					read: false,
+				});
+			});
+	};
+
+	// Выход из аккаунта
+	const handleLogout = () => {
+		if (confirm("Вы уверены, что хотите выйти?")) {
+			// Очищаем все стор-ы
+			setPetsStore([]);
+			setActiveTab("dashboard");
+			setSelectedPetId(null);
+			addNotification({
 				id: Date.now(),
-				text: `Добавлено в корзину: ${item.name}`,
+				text: "Вы вышли из аккаунта",
 				time: "сейчас",
 				read: false,
-			},
-			...prev,
-		]);
+			});
+			// Имитируем выход (в реальном приложении - редирект на /login)
+			setTimeout(() => {
+				window.location.reload();
+			}, 500);
+		}
+	};
+
+	// Скачивание файла из медкарты
+	const handleDownloadFile = (fileName: string) => {
+		// В реальном приложении здесь была бы загрузка реального файла
+		const link = document.createElement("a");
+		link.href = `data:application/octet-stream;base64,JVBERi0xLjQKJeLjz9MNCjEgMCBvYmo...`; // Dummy PDF
+		link.download = fileName;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+		addNotification({
+			id: Date.now(),
+			text: `Файл ${fileName} загружен`,
+			time: "сейчас",
+			read: false,
+		});
 	};
 
 	return (
@@ -419,7 +486,10 @@ export default function App() {
 							<p className="text-sm font-bold mb-4">
 								Бесплатные выезды и скидки 15%
 							</p>
-							<button className="w-full py-2 bg-indigo-500 hover:bg-indigo-400 rounded-xl text-xs font-bold transition-all transform group-hover:scale-105">
+							<button
+								onClick={() => toggleModal("vetpass", true)}
+								className="w-full py-2 bg-indigo-500 hover:bg-indigo-400 rounded-xl text-xs font-bold transition-all transform group-hover:scale-105"
+							>
 								Улучшить тариф
 							</button>
 						</div>
@@ -486,6 +556,11 @@ export default function App() {
 							onGrooming={() => toggleModal("grooming", true)}
 							onConsult={() => toggleModal("consultation", true)}
 							onDelete={() => handleDeletePet(selectedPet.id)}
+							onToggleReminder={handleToggleReminder}
+							onDownloadFile={handleDownloadFile}
+							onOpenCertificates={() =>
+								toggleModal("certificates", true)
+							}
 						/>
 					) : (
 						<div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -508,12 +583,15 @@ export default function App() {
 									onConsult={() =>
 										toggleModal("consultation", true)
 									}
+									onOpenCertificates={() =>
+										toggleModal("certificates", true)
+									}
 								/>
 							)}
 							{activeTab === "shop" && (
 								<ShopView
 									items={SHOP_ITEMS}
-									onAddToCart={addToCart}
+									onAddToCart={handleAddToCart}
 									hideTitle
 								/>
 							)}
@@ -523,7 +601,9 @@ export default function App() {
 									hideTitle
 								/>
 							)}
-							{activeTab === "social" && <SocialFeed />}
+							{activeTab === "social" && (
+								<SocialFeed onShare={handleSharePost} />
+							)}
 							{activeTab === "telemed" && (
 								<TelemedView
 									onConsult={() =>
@@ -543,125 +623,33 @@ export default function App() {
 							{activeTab === "notifications" && (
 								<NotificationsView
 									list={notifications}
-									onClear={() => setNotifications([])}
+									onClear={clearAllNotifications}
 									hideTitle
 								/>
 							)}
 							{activeTab === "settings" && (
-								<SettingsView hideTitle />
+								<SettingsView
+									hideTitle
+									onLogout={handleLogout}
+								/>
 							)}
 						</div>
 					)}
 				</div>
 
 				{/* Mobile drawer */}
-				{mobileOpen && (
-					<div className="md:hidden fixed inset-0 z-50 flex">
-						{/* Drawer */}
-						<aside className="w-72 bg-white border-r border-slate-200 p-6 overflow-y-auto">
-							<div className="flex items-center gap-3 mb-6">
-								<div className="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-xl shrink-0">
-									<Heart size={24} fill="currentColor" />
-								</div>
-								<span className="text-2xl font-black tracking-tight text-slate-800">
-									VetCloud
-								</span>
-								<button
-									onClick={() => setMobileOpen(false)}
-									className="ml-auto p-2 rounded-lg"
-								>
-									<X size={20} />
-								</button>
-							</div>
-
-							<div className="space-y-1">
-								<NavItem
-									icon={Activity}
-									label="Дашборд"
-									showLabel
-									active={activeTab === "dashboard"}
-									onClick={() => {
-										setActiveTab("dashboard");
-										setSelectedPetId(null);
-										setMobileOpen(false);
-									}}
-								/>
-								<NavItem
-									icon={Calendar}
-									label="Приемы"
-									showLabel
-									active={activeTab === "appointments"}
-									onClick={() => {
-										setActiveTab("appointments");
-										setMobileOpen(false);
-									}}
-								/>
-								<NavItem
-									icon={Video}
-									label="Консультации"
-									showLabel
-									active={activeTab === "telemed"}
-									onClick={() => {
-										setActiveTab("telemed");
-										setMobileOpen(false);
-									}}
-								/>
-								<NavItem
-									icon={ShoppingBag}
-									label="Магазин"
-									showLabel
-									active={activeTab === "shop"}
-									onClick={() => {
-										setActiveTab("shop");
-										setMobileOpen(false);
-									}}
-								/>
-								<div className="my-6 border-t border-slate-100" />
-								<NavItem
-									icon={Bell}
-									label="Уведомления"
-									showLabel
-									badge={
-										notifications.filter((n) => !n.read)
-											.length
-									}
-									onClick={() => {
-										setActiveTab("notifications");
-										setMobileOpen(false);
-									}}
-								/>
-								<NavItem
-									icon={Settings}
-									label="Настройки"
-									showLabel
-									onClick={() => {
-										setActiveTab("settings");
-										setMobileOpen(false);
-									}}
-								/>
-							</div>
-
-							<div className="mt-6">
-								<div className="bg-slate-900 rounded-[2rem] p-5 text-white">
-									<p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">
-										VetPass Plus
-									</p>
-									<p className="text-sm font-bold mb-4">
-										Бесплатные выезды и скидки 15%
-									</p>
-									<button className="w-full py-2 bg-indigo-500 hover:bg-indigo-400 rounded-xl text-xs font-bold">
-										Улучшить тариф
-									</button>
-								</div>
-							</div>
-						</aside>
-						{/* Backdrop */}
-						<div
-							className="flex-1"
-							onClick={() => setMobileOpen(false)}
-						/>
-					</div>
-				)}
+				<MobileDrawer
+					open={mobileOpen}
+					onClose={() => setMobileOpen(false)}
+					activeTab={activeTab}
+					unreadNotifications={
+						notifications.filter((n) => !n.read).length
+					}
+					onNavClick={(tab) => {
+						setActiveTab(tab);
+						if (tab === "dashboard") setSelectedPetId(null);
+					}}
+				/>
 			</main>
 
 			{/* MODALS */}
@@ -669,14 +657,21 @@ export default function App() {
 				<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
 					<div className="bg-white rounded-[3rem] w-full max-w-lg p-10 shadow-2xl animate-in zoom-in-95 duration-200">
 						<div className="flex items-center justify-between mb-6">
-							<h3 className="text-3xl font-black">Новый питомец</h3>
-							<button onClick={() => toggleModal("addPet", false)} className="p-2 hover:bg-slate-100 rounded-xl">
+							<h3 className="text-3xl font-black">
+								Новый питомец
+							</h3>
+							<button
+								onClick={() => toggleModal("addPet", false)}
+								className="p-2 hover:bg-slate-100 rounded-xl"
+							>
 								<X size={24} />
 							</button>
 						</div>
 						<div>
 							{/* AddPetForm will add to mock store and close modal */}
-							<AddPetForm onClose={() => toggleModal("addPet", false)} />
+							<AddPetForm
+								onClose={() => toggleModal("addPet", false)}
+							/>
 						</div>
 					</div>
 				</div>
@@ -709,11 +704,29 @@ export default function App() {
 				<CartModal
 					items={cart}
 					onClose={() => toggleModal("cart", false)}
-					onRemove={(idx) =>
-						setCart(cart.filter((_, i) => i !== idx))
-					}
+					onRemove={removeFromCart}
 				/>
 			)}
+			{modals.certificates && (
+				<CertificatesModal
+					pets={pets}
+					onClose={() => toggleModal("certificates", false)}
+					onOrder={() => {
+						toast.success("Справка успешно заказана!");
+						toggleModal("certificates", false);
+					}}
+				/>
+			)}
+			{modals.vetpass && (
+				<VetPassModal
+					onClose={() => toggleModal("vetpass", false)}
+					onSelectPlan={() => {
+						toast.success("План подписки выбран!");
+						toggleModal("vetpass", false);
+					}}
+				/>
+			)}
+			<Toaster />
 		</div>
 	);
 }
@@ -786,10 +799,12 @@ function DashboardContent({
 	pets,
 	onPetSelect,
 	onConsult,
+	onOpenCertificates,
 }: {
 	pets: Pet[];
 	onPetSelect: (id: string) => void;
 	onConsult: () => void;
+	onOpenCertificates: () => void;
 }) {
 	return (
 		<div className="space-y-10">
@@ -881,7 +896,10 @@ function DashboardContent({
 								Врач онлайн
 							</span>
 						</button>
-						<button className="p-4 bg-indigo-50 rounded-2xl text-indigo-600 flex flex-col items-center gap-2 hover:bg-indigo-100 transition-colors">
+						<button
+							onClick={onOpenCertificates}
+							className="p-4 bg-indigo-50 rounded-2xl text-indigo-600 flex flex-col items-center gap-2 hover:bg-indigo-100 transition-colors"
+						>
 							<FileText size={24} />
 							<span className="text-xs font-black">Справки</span>
 						</button>
@@ -899,6 +917,9 @@ function PetFullProfile({
 	onGrooming,
 	onConsult,
 	onDelete,
+	onToggleReminder,
+	onDownloadFile,
+	onOpenCertificates,
 }: {
 	pet: Pet;
 	onBack: () => void;
@@ -906,6 +927,9 @@ function PetFullProfile({
 	onGrooming: () => void;
 	onConsult: () => void;
 	onDelete: () => void;
+	onToggleReminder: (id: string) => void;
+	onDownloadFile: (fileName: string) => void;
+	onOpenCertificates: (petId: string) => void;
 }) {
 	const [activeTab, setActiveTab] = useState("medical");
 
@@ -983,6 +1007,12 @@ function PetFullProfile({
 							>
 								<Video size={20} /> Консультация
 							</button>
+							<button
+								onClick={() => onOpenCertificates(pet.id)}
+								className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-black bg-emerald-50 text-emerald-600 hover:bg-emerald-100 active:scale-95 transition-all"
+							>
+								<FileText size={20} /> Справки
+							</button>
 						</div>
 					</div>
 				</div>
@@ -1005,9 +1035,12 @@ function PetFullProfile({
 
 					<div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm min-h-[400px]">
 						{activeTab === "medical" ? (
-							<MedicalTab pet={pet} />
+							<MedicalTab pet={pet} onDownload={onDownloadFile} />
 						) : (
-							<HistoryTab pet={pet} />
+							<HistoryTab
+								pet={pet}
+								onToggleReminder={onToggleReminder}
+							/>
 						)}
 					</div>
 				</div>
@@ -1041,7 +1074,13 @@ function TabButton({
 	);
 }
 
-function MedicalTab({ pet }: { pet: Pet }) {
+function MedicalTab({
+	pet,
+	onDownload,
+}: {
+	pet: Pet;
+	onDownload: (fileName: string) => void;
+}) {
 	return (
 		<div className="space-y-8 animate-in fade-in duration-300">
 			<h3 className="text-2xl font-black text-slate-800">
@@ -1073,7 +1112,12 @@ function MedicalTab({ pet }: { pet: Pet }) {
 							<p className="text-slate-500 font-medium mb-4">
 								{record.treatment}
 							</p>
-							<button className="flex items-center gap-2 text-xs font-black text-indigo-600 hover:underline">
+							<button
+								onClick={() =>
+									onDownload(record.file || "document.pdf")
+								}
+								className="flex items-center gap-2 text-xs font-black text-indigo-600 hover:text-indigo-700 transition-colors"
+							>
 								<Download size={14} /> Скачать {record.file}
 							</button>
 						</div>
@@ -1084,7 +1128,13 @@ function MedicalTab({ pet }: { pet: Pet }) {
 	);
 }
 
-function HistoryTab({ pet }: { pet: Pet }) {
+function HistoryTab({
+	pet,
+	onToggleReminder,
+}: {
+	pet: Pet;
+	onToggleReminder: (id: string) => void;
+}) {
 	return (
 		<div className="space-y-4 animate-in fade-in duration-300">
 			<h3 className="text-2xl font-black mb-6">События и напоминания</h3>
@@ -1118,6 +1168,7 @@ function HistoryTab({ pet }: { pet: Pet }) {
 							</div>
 						</div>
 						<button
+							onClick={() => onToggleReminder(r.id)}
 							className={`text-[10px] font-black uppercase px-3 py-1.5 rounded-lg transition-all ${
 								r.completed
 									? "bg-emerald-100 text-emerald-600 cursor-default"
@@ -1302,7 +1353,7 @@ function ShopView({
 	);
 }
 
-function SocialFeed() {
+function SocialFeed({ onShare }: { onShare: (postId: number) => void }) {
 	const [liked, setLiked] = useState<Record<number, boolean>>({});
 	const posts = [
 		{
@@ -1359,7 +1410,10 @@ function SocialFeed() {
 								</p>
 							</div>
 						</div>
-						<button className="text-slate-300 hover:text-slate-500">
+						<button
+							onClick={() => onShare(post.id)}
+							className="text-slate-300 hover:text-slate-500 transition-colors"
+						>
 							<Share2 size={18} />
 						</button>
 					</div>
@@ -1452,7 +1506,708 @@ function NotificationsView({
 	);
 }
 
-function SettingsView({ hideTitle }: { hideTitle?: boolean }) {
+// Modal для безопасности
+function SecurityModal({ onClose }: { onClose: () => void }) {
+	const [newPassword, setNewPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
+	const [twoFactor, setTwoFactor] = useState(false);
+
+	const handleChangePassword = () => {
+		if (newPassword === confirmPassword && newPassword.length >= 8) {
+			alert("Пароль успешно изменён!");
+			onClose();
+		} else {
+			alert("Пароли не совпадают или слишком короткие");
+		}
+	};
+
+	return (
+		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+			<div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-200">
+				<div className="flex items-center justify-between mb-6">
+					<h3 className="text-3xl font-black">Безопасность</h3>
+					<button
+						onClick={onClose}
+						className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+					>
+						<X size={24} />
+					</button>
+				</div>
+
+				<div className="space-y-6">
+					<div>
+						<label className="block text-sm font-black text-slate-700 mb-2">
+							Новый пароль
+						</label>
+						<input
+							type="password"
+							value={newPassword}
+							onChange={(e) => setNewPassword(e.target.value)}
+							placeholder="Минимум 8 символов"
+							className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 transition-colors"
+						/>
+					</div>
+
+					<div>
+						<label className="block text-sm font-black text-slate-700 mb-2">
+							Подтвердить пароль
+						</label>
+						<input
+							type="password"
+							value={confirmPassword}
+							onChange={(e) => setConfirmPassword(e.target.value)}
+							placeholder="Повторите пароль"
+							className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 transition-colors"
+						/>
+					</div>
+
+					<button
+						onClick={handleChangePassword}
+						className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-black hover:bg-indigo-700 transition-colors"
+					>
+						Изменить пароль
+					</button>
+
+					<div className="border-t border-slate-200 pt-6">
+						<label className="flex items-center gap-3 cursor-pointer">
+							<input
+								type="checkbox"
+								checked={twoFactor}
+								onChange={(e) => setTwoFactor(e.target.checked)}
+								className="w-5 h-5 rounded accent-indigo-600"
+							/>
+							<span className="font-bold text-slate-700">
+								Включить двухфакторную аутентификацию
+							</span>
+						</label>
+						<p className="text-xs text-slate-400 mt-2 ml-8">
+							Дополнительный уровень защиты для вашего аккаунта
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+// Modal для методов оплаты
+function PaymentModal({ onClose }: { onClose: () => void }) {
+	const [cards, setCards] = useState([
+		{ id: 1, last4: "4242", bank: "Сбербанк", default: true },
+		{ id: 2, last4: "8765", bank: "Яндекс.Касса", default: false },
+	]);
+	const [newCard, setNewCard] = useState("");
+
+	const addCard = () => {
+		if (newCard.length === 16) {
+			setCards([
+				...cards,
+				{
+					id: cards.length + 1,
+					last4: newCard.slice(-4),
+					bank: "Новая карта",
+					default: false,
+				},
+			]);
+			setNewCard("");
+		}
+	};
+
+	return (
+		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+			<div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-200">
+				<div className="flex items-center justify-between mb-6">
+					<h3 className="text-3xl font-black">Методы оплаты</h3>
+					<button
+						onClick={onClose}
+						className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+					>
+						<X size={24} />
+					</button>
+				</div>
+
+				<div className="space-y-4 mb-6">
+					{cards.map((card) => (
+						<div
+							key={card.id}
+							className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between hover:border-indigo-300 transition-colors"
+						>
+							<div>
+								<p className="font-bold text-slate-800">
+									{card.bank} ****{card.last4}
+								</p>
+								{card.default && (
+									<span className="text-xs font-black text-indigo-600">
+										По умолчанию
+									</span>
+								)}
+							</div>
+							<button className="text-slate-400 hover:text-rose-500 transition-colors">
+								<Trash2 size={18} />
+							</button>
+						</div>
+					))}
+				</div>
+
+				<div className="border-t border-slate-200 pt-6 space-y-3">
+					<label className="block text-sm font-black text-slate-700">
+						Добавить новую карту
+					</label>
+					<input
+						type="text"
+						placeholder="XXXX XXXX XXXX XXXX"
+						maxLength={16}
+						value={newCard}
+						onChange={(e) =>
+							setNewCard(e.target.value.replace(/\D/g, ""))
+						}
+						className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500"
+					/>
+					<button
+						onClick={addCard}
+						className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-black hover:bg-indigo-700 transition-colors"
+					>
+						Добавить карту
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+// Modal для уведомлений
+function NotificationPreferencesModal({ onClose }: { onClose: () => void }) {
+	const [prefs, setPrefs] = useState({
+		email: true,
+		push: true,
+		sms: false,
+		appointments: true,
+		reminders: true,
+		promotions: false,
+	});
+
+	const toggle = (key: keyof typeof prefs) => {
+		setPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+	};
+
+	return (
+		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+			<div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-200">
+				<div className="flex items-center justify-between mb-6">
+					<h3 className="text-3xl font-black">Уведомления</h3>
+					<button
+						onClick={onClose}
+						className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+					>
+						<X size={24} />
+					</button>
+				</div>
+
+				<div className="space-y-4">
+					<div>
+						<p className="text-sm font-black text-slate-700 mb-3">
+							Каналы доставки
+						</p>
+						<div className="space-y-2">
+							{[
+								{ key: "email", label: "Email" },
+								{ key: "push", label: "Push-уведомления" },
+								{ key: "sms", label: "SMS" },
+							].map(({ key, label }) => (
+								<label
+									key={key}
+									className="flex items-center gap-3 cursor-pointer"
+								>
+									<input
+										type="checkbox"
+										checked={
+											prefs[key as keyof typeof prefs]
+										}
+										onChange={() =>
+											toggle(key as keyof typeof prefs)
+										}
+										className="w-5 h-5 rounded accent-indigo-600"
+									/>
+									<span className="font-bold text-slate-700">
+										{label}
+									</span>
+								</label>
+							))}
+						</div>
+					</div>
+
+					<div className="border-t border-slate-200 pt-4">
+						<p className="text-sm font-black text-slate-700 mb-3">
+							Типы уведомлений
+						</p>
+						<div className="space-y-2">
+							{[
+								{
+									key: "appointments",
+									label: "Записи и приёмы",
+								},
+								{ key: "reminders", label: "Напоминания" },
+								{ key: "promotions", label: "Акции и скидки" },
+							].map(({ key, label }) => (
+								<label
+									key={key}
+									className="flex items-center gap-3 cursor-pointer"
+								>
+									<input
+										type="checkbox"
+										checked={
+											prefs[key as keyof typeof prefs]
+										}
+										onChange={() =>
+											toggle(key as keyof typeof prefs)
+										}
+										className="w-5 h-5 rounded accent-indigo-600"
+									/>
+									<span className="font-bold text-slate-700">
+										{label}
+									</span>
+								</label>
+							))}
+						</div>
+					</div>
+				</div>
+
+				<button
+					onClick={onClose}
+					className="w-full mt-6 bg-indigo-600 text-white py-3 rounded-2xl font-black hover:bg-indigo-700 transition-colors"
+				>
+					Сохранить
+				</button>
+			</div>
+		</div>
+	);
+}
+
+// Modal для языка интерфейса
+function LanguageModal({ onClose }: { onClose: () => void }) {
+	const [language, setLanguage] = useState("ru");
+
+	return (
+		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+			<div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-200">
+				<div className="flex items-center justify-between mb-6">
+					<h3 className="text-3xl font-black">Язык интерфейса</h3>
+					<button
+						onClick={onClose}
+						className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+					>
+						<X size={24} />
+					</button>
+				</div>
+
+				<div className="space-y-3 mb-6">
+					{[
+						{ code: "ru", name: "Русский", flag: "🇷🇺" },
+						{ code: "en", name: "English", flag: "🇬🇧" },
+						{ code: "es", name: "Español", flag: "🇪🇸" },
+					].map(({ code, name, flag }) => (
+						<label
+							key={code}
+							className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 cursor-pointer transition-all hover:border-indigo-300"
+							style={{
+								borderColor: language === code ? "#4f39f6" : "",
+								backgroundColor:
+									language === code ? "#f0f4ff" : "",
+							}}
+						>
+							<input
+								type="radio"
+								name="language"
+								value={code}
+								checked={language === code}
+								onChange={(e) => setLanguage(e.target.value)}
+								className="w-5 h-5 accent-indigo-600"
+							/>
+							<span className="text-2xl">{flag}</span>
+							<span className="font-bold text-slate-700 flex-1">
+								{name}
+							</span>
+							{language === code && (
+								<CheckCircle2
+									size={20}
+									className="text-indigo-600"
+								/>
+							)}
+						</label>
+					))}
+				</div>
+
+				<button
+					onClick={onClose}
+					className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-black hover:bg-indigo-700 transition-colors"
+				>
+					Применить
+				</button>
+			</div>
+		</div>
+	);
+}
+
+// Modal для справок
+function CertificatesModal({
+	onClose,
+	petName,
+	pets,
+	onOrder,
+}: {
+	onClose: () => void;
+	petName?: string;
+	pets: Pet[];
+	onOrder?: () => void;
+}) {
+	const [selectedType, setSelectedType] = useState("health");
+	const [selectedPetId, setSelectedPetId] = useState<string>(
+		petName ? "" : pets[0]?.id || ""
+	);
+	const [showConfirm, setShowConfirm] = useState(false);
+
+	const displayPetName =
+		petName || pets.find((p) => p.id === selectedPetId)?.name || "Питомец";
+
+	const certificateTypes = [
+		{
+			id: "health",
+			name: "Справка о здоровье",
+			price: "200 ₽",
+			icon: ShieldCheck,
+		},
+		{
+			id: "vaccination",
+			name: "Справка о вакцинации",
+			price: "150 ₽",
+			icon: CheckCircle2,
+		},
+		{
+			id: "travel",
+			name: "Ветеринарный паспорт",
+			price: "300 ₽",
+			icon: FileText,
+		},
+		{
+			id: "neutering",
+			name: "Справка о стерилизации",
+			price: "100 ₽",
+			icon: Heart,
+		},
+	];
+
+	const selectedCertName = certificateTypes.find(
+		(c) => c.id === selectedType
+	)?.name;
+
+	const handleOrder = () => {
+		setShowConfirm(true);
+	};
+
+	const handleConfirmOrder = () => {
+		setShowConfirm(false);
+		toast.success(
+			`Справка "${selectedCertName}" для ${displayPetName} успешно заказана! 📋`
+		);
+		if (onOrder) {
+			onOrder();
+		} else {
+			setTimeout(() => onClose(), 500);
+		}
+	};
+
+	return (
+		<>
+			<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+				<div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl animate-in zoom-in-95 duration-200">
+					<div className="flex items-center justify-between mb-6">
+						<h3 className="text-3xl font-black">
+							Справки для {displayPetName}
+						</h3>
+						<button
+							onClick={onClose}
+							className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+						>
+							<X size={24} />
+						</button>
+					</div>
+
+					{!petName && pets.length > 0 && (
+						<div className="mb-6">
+							<label className="block text-sm font-bold text-slate-700 mb-3">
+								Выберите питомца:
+							</label>
+							<select
+								value={selectedPetId}
+								onChange={(e) =>
+									setSelectedPetId(e.target.value)
+								}
+								className="w-full px-4 py-2 border-2 border-slate-200 rounded-xl font-bold focus:border-indigo-600 focus:outline-none"
+							>
+								{pets.map((pet) => (
+									<option key={pet.id} value={pet.id}>
+										{pet.name}
+									</option>
+								))}
+							</select>
+						</div>
+					)}
+
+					<div className="space-y-3 mb-6">
+						{certificateTypes.map((cert) => {
+							const IconComponent = cert.icon;
+							return (
+								<label
+									key={cert.id}
+									className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+										selectedType === cert.id
+											? "border-indigo-600 bg-indigo-50"
+											: "border-slate-200 bg-slate-50 hover:border-indigo-300"
+									}`}
+								>
+									<input
+										type="radio"
+										name="certificate"
+										value={cert.id}
+										checked={selectedType === cert.id}
+										onChange={(e) =>
+											setSelectedType(e.target.value)
+										}
+										className="hidden"
+									/>
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-3">
+											<IconComponent
+												size={24}
+												className={
+													selectedType === cert.id
+														? "text-indigo-600"
+														: "text-slate-400"
+												}
+											/>
+											<div>
+												<p className="font-bold text-slate-800">
+													{cert.name}
+												</p>
+											</div>
+										</div>
+										<p className="font-black text-indigo-600">
+											{cert.price}
+										</p>
+									</div>
+								</label>
+							);
+						})}
+					</div>
+
+					<button
+						onClick={handleOrder}
+						className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-black hover:bg-indigo-700 transition-colors"
+					>
+						Заказать справку
+					</button>
+				</div>
+			</div>
+
+			<AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							Подтверждение заказа
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							Вы действительно хотите заказать справку "
+							{selectedCertName}" для {displayPetName}?
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Отмена</AlertDialogCancel>
+						<AlertDialogAction onClick={handleConfirmOrder}>
+							Подтвердить
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
+	);
+}
+
+// Modal для VetPass Plus
+function VetPassModal({
+	onClose,
+	onSelectPlan,
+}: {
+	onClose: () => void;
+	onSelectPlan?: () => void;
+}) {
+	const [selected, setSelected] = useState("plus");
+	const [showConfirm, setShowConfirm] = useState(false);
+
+	const plans = [
+		{
+			id: "free",
+			name: "Базовый",
+			price: "0 ₽/мес",
+			popular: false,
+			features: [
+				"Медкарта питомца",
+				"Календарь приёмов",
+				"1 консультация в месяц",
+				"Базовый поиск врачей",
+			],
+		},
+		{
+			id: "plus",
+			name: "VetPass Plus",
+			price: "499 ₽/мес",
+			popular: true,
+			features: [
+				"Всё из Базового +",
+				"Неограниченные консультации",
+				"Скидки 15% на услуги",
+				"Приоритетная очередь",
+				"Бесплатная доставка лекарств",
+				"Вызов врача на дом",
+			],
+		},
+		{
+			id: "pro",
+			name: "VetPass Pro",
+			price: "999 ₽/мес",
+			popular: false,
+			features: [
+				"Всё из Plus +",
+				"Персональный ветеринар",
+				"Скидки 25% на услуги",
+				"Оплата счётом/рассрочка",
+				"Страховка на питомца",
+				"VIP поддержка 24/7",
+				"Ежегодный осмотр бесплатно",
+			],
+		},
+	];
+
+	const selectedPlan = plans.find((p) => p.id === selected);
+
+	const handleSelectPlan = () => {
+		setShowConfirm(true);
+	};
+
+	const handleConfirm = () => {
+		setShowConfirm(false);
+		toast.success(
+			`Тариф "${selectedPlan?.name}" выбран! 🎉 Переходим к оплате...`
+		);
+		if (onSelectPlan) {
+			onSelectPlan();
+		} else {
+			setTimeout(() => onClose(), 500);
+		}
+	};
+
+	return (
+		<>
+			<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+				<div className="bg-white rounded-[3rem] w-full max-w-4xl p-10 shadow-2xl animate-in zoom-in-95 duration-200">
+					<div className="flex items-center justify-between mb-8">
+						<div>
+							<h3 className="text-3xl font-black">
+								VetPass Plus
+							</h3>
+							<p className="text-slate-400 font-bold mt-1">
+								Выберите подходящий тариф
+							</p>
+						</div>
+						<button
+							onClick={onClose}
+							className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+						>
+							<X size={24} />
+						</button>
+					</div>
+
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+						{plans.map((plan) => (
+							<div
+								key={plan.id}
+								onClick={() => setSelected(plan.id)}
+								className={`p-6 rounded-2xl border-2 cursor-pointer transition-all relative ${
+									selected === plan.id
+										? "border-indigo-600 bg-indigo-50"
+										: "border-slate-200 bg-white hover:border-indigo-300"
+								}`}
+							>
+								{plan.popular && (
+									<div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-3 py-1 rounded-full text-xs font-black">
+										ПОПУЛЯРНО
+									</div>
+								)}
+								<h4 className="text-xl font-black text-slate-800 mb-2">
+									{plan.name}
+								</h4>
+								<p className="text-2xl font-black text-indigo-600 mb-4">
+									{plan.price}
+								</p>
+								<ul className="space-y-2 text-sm">
+									{plan.features.map((feature, i) => (
+										<li
+											key={i}
+											className="flex items-start gap-2 text-slate-700"
+										>
+											<CheckCircle2
+												size={16}
+												className="text-emerald-500 shrink-0 mt-0.5"
+											/>
+											{feature}
+										</li>
+									))}
+								</ul>
+							</div>
+						))}
+					</div>
+
+					<button
+						onClick={handleSelectPlan}
+						className="w-full bg-indigo-600 text-white py-3 rounded-2xl font-black hover:bg-indigo-700 transition-colors"
+					>
+						Выбрать тариф {selectedPlan?.name}
+					</button>
+				</div>
+			</div>
+
+			<AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							Подтверждение выбора тарифа
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							Вы хотите перейти на тариф "{selectedPlan?.name}" (
+							{selectedPlan?.price})? После подтверждения вас
+							перенесут на страницу оплаты.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Отмена</AlertDialogCancel>
+						<AlertDialogAction onClick={handleConfirm}>
+							Подтвердить
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
+	);
+}
+
+function SettingsView({
+	hideTitle,
+	onLogout,
+}: {
+	hideTitle?: boolean;
+	onLogout: () => void;
+}) {
+	const [openModal, setOpenModal] = useState<string | null>(null);
+
 	return (
 		<div className="max-w-2xl mx-auto bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm">
 			{!hideTitle && (
@@ -1482,20 +2237,49 @@ function SettingsView({ hideTitle }: { hideTitle?: boolean }) {
 					<SettingItem
 						icon={ShieldCheck}
 						label="Безопасность и пароли"
+						onClick={() => setOpenModal("security")}
 					/>
-					<SettingItem icon={CreditCard} label="Методы оплаты" />
-					<SettingItem icon={Bell} label="Настройка уведомлений" />
+					<SettingItem
+						icon={CreditCard}
+						label="Методы оплаты"
+						onClick={() => setOpenModal("payment")}
+					/>
+					<SettingItem
+						icon={Bell}
+						label="Настройка уведомлений"
+						onClick={() => setOpenModal("notifications")}
+					/>
 					<SettingItem
 						icon={Globe}
 						label="Язык интерфейса"
 						value="Русский"
+						onClick={() => setOpenModal("language")}
 					/>
 				</div>
 
-				<button className="w-full flex items-center justify-center gap-2 py-4 text-rose-500 font-black hover:bg-rose-50 rounded-2xl transition-all mt-8">
+				<button
+					onClick={onLogout}
+					className="w-full flex items-center justify-center gap-2 py-4 text-rose-500 font-black hover:bg-rose-50 rounded-2xl transition-all mt-8"
+				>
 					<LogOut size={20} /> Выйти из аккаунта
 				</button>
 			</div>
+
+			{/* Modals */}
+			{openModal === "security" && (
+				<SecurityModal onClose={() => setOpenModal(null)} />
+			)}
+			{openModal === "payment" && (
+				<PaymentModal onClose={() => setOpenModal(null)} />
+			)}
+			{openModal === "notifications" && (
+				<NotificationPreferencesModal
+					onClose={() => setOpenModal(null)}
+				/>
+			)}
+			{openModal === "language" && (
+				<LanguageModal onClose={() => setOpenModal(null)} />
+			)}
 		</div>
 	);
 }
@@ -1504,13 +2288,18 @@ function SettingItem({
 	icon: Icon,
 	label,
 	value,
+	onClick,
 }: {
 	icon: React.ComponentType<any>;
 	label: string;
 	value?: string;
+	onClick?: () => void;
 }) {
 	return (
-		<div className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors group">
+		<div
+			onClick={onClick}
+			className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors group"
+		>
 			<div className="flex items-center gap-4">
 				<Icon
 					size={20}
@@ -1599,214 +2388,6 @@ function GroomingHomeView({
 
 // --- MODALS (ВНУТРЕННИЕ) ---
 
-function CartModal({
-	items,
-	onClose,
-	onRemove,
-}: {
-	items: ShopItem[];
-	onClose: () => void;
-	onRemove: (idx: number) => void;
-}) {
-	const total = items.reduce((sum, i) => sum + i.price, 0);
-	return (
-		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-end">
-			<div className="bg-white w-full max-w-md h-screen p-10 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-				<div className="flex justify-between items-center mb-10">
-					<h3 className="text-3xl font-black">Корзина</h3>
-					<button
-						onClick={onClose}
-						className="p-2 hover:bg-slate-100 rounded-xl"
-					>
-						<X size={28} />
-					</button>
-				</div>
-
-				<div className="flex-1 overflow-y-auto space-y-6 pr-4">
-					{items.length === 0 ? (
-						<div className="text-center py-20">
-							<ShoppingBag
-								size={48}
-								className="mx-auto text-slate-200 mb-4"
-							/>
-							<p className="text-slate-400 font-bold">
-								Корзина пуста
-							</p>
-						</div>
-					) : (
-						items.map((item, i) => (
-							<div
-								key={i}
-								className="flex items-center gap-4 bg-slate-50 p-4 rounded-3xl"
-							>
-								<img
-									src={item.img}
-									className="w-16 h-16 rounded-2xl object-cover"
-									alt={item.name}
-								/>
-								<div className="flex-1">
-									<p className="font-bold text-sm">
-										{item.name}
-									</p>
-									<p className="font-black text-indigo-600">
-										{item.price} ₽
-									</p>
-								</div>
-								<button
-									onClick={() => onRemove(i)}
-									className="text-slate-300 hover:text-rose-500"
-								>
-									<Trash2 size={18} />
-								</button>
-							</div>
-						))
-					)}
-				</div>
-
-				{items.length > 0 && (
-					<div className="pt-8 border-t border-slate-100 mt-auto">
-						<div className="flex justify-between items-end mb-6">
-							<p className="text-slate-400 font-bold">Итого:</p>
-							<p className="text-3xl font-black">{total} ₽</p>
-						</div>
-						<button className="w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black shadow-xl active:scale-95 transition-all">
-							Оформить заказ
-						</button>
-					</div>
-				)}
-			</div>
-		</div>
-	);
-}
-
-function BookingModal({
-	type,
-	pets,
-	onClose,
-	onSave,
-}: {
-	type: string;
-	pets: Pet[];
-	onClose: () => void;
-	onSave: (data: {
-		petName?: string;
-		doctor?: string;
-		date?: string;
-		time?: string;
-		type?: string;
-	}) => void;
-}) {
-	const [selectedPet, setSelectedPet] = useState<string>(pets[0]?.id || "");
-	const [date, setDate] = useState<string>("");
-	const [time, setTime] = useState<string>("10:00");
-
-	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
-		if (!date) return alert("Пожалуйста, выберите дату");
-		const pet = pets.find((p) => p.id === selectedPet);
-		onSave({
-			petName: pet?.name || "Питомец",
-			doctor:
-				type === "grooming"
-					? "Грумер (выезд)"
-					: type === "telemed"
-					? "Онлайн-консультант"
-					: "Терапевт (клиника)",
-			date,
-			time,
-			type,
-		});
-	};
-
-	return (
-		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-			<form
-				onSubmit={handleSubmit}
-				className="bg-white rounded-[3rem] w-full max-w-xl p-10 shadow-2xl animate-in zoom-in-95 duration-200"
-			>
-				<div className="flex justify-between items-center mb-8">
-					<h3 className="text-3xl font-black text-slate-800">
-						Запись
-					</h3>
-					<button
-						type="button"
-						onClick={onClose}
-						className="text-slate-400 hover:text-slate-600"
-					>
-						<X size={28} />
-					</button>
-				</div>
-				<div className="space-y-6">
-					<div>
-						<label className="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">
-							Выберите питомца
-						</label>
-						<div className="grid grid-cols-3 gap-3">
-							{pets.map((p) => (
-								<button
-									key={p.id}
-									type="button"
-									onClick={() => setSelectedPet(p.id)}
-									className={`p-3 rounded-2xl border-2 font-bold text-xs transition-all ${
-										selectedPet === p.id
-											? "border-indigo-600 bg-indigo-50 text-indigo-600"
-											: "border-slate-100 text-slate-400"
-									}`}
-								>
-									{p.name}
-								</button>
-							))}
-						</div>
-					</div>
-					<div className="grid grid-cols-2 gap-4">
-						<div>
-							<label className="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">
-								Дата
-							</label>
-							<input
-								type="date"
-								required
-								className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100"
-								value={date}
-								onChange={(
-									e: React.ChangeEvent<HTMLInputElement>
-								) => setDate(e.target.value)}
-							/>
-						</div>
-						<div>
-							<label className="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">
-								Время
-							</label>
-							<input
-								type="time"
-								required
-								className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100"
-								value={time}
-								onChange={(
-									e: React.ChangeEvent<HTMLInputElement>
-								) => setTime(e.target.value)}
-							/>
-						</div>
-					</div>
-					<div className="p-4 bg-indigo-50 rounded-2xl flex items-center gap-3">
-						<ShieldCheck className="text-indigo-600" size={24} />
-						<p className="text-xs font-bold text-indigo-900">
-							Вы получите напоминание за 2 часа до начала визита в
-							приложении.
-						</p>
-					</div>
-					<button
-						type="submit"
-						className="w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black shadow-lg hover:bg-indigo-700 active:scale-95 transition-all"
-					>
-						Подтвердить запись
-					</button>
-				</div>
-			</form>
-		</div>
-	);
-}
-
 function AddPetModal({
 	onClose,
 	onSave,
@@ -1820,105 +2401,9 @@ function AddPetModal({
 		weight: number;
 	}) => void;
 }) {
-	const [name, setName] = useState<string>("");
-	const [breed, setBreed] = useState<string>("");
-	const [gender, setGender] = useState<string>("Мужской");
-
-	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
-		if (!name || !breed) return alert("Заполните все поля");
-		onSave({
-			name,
-			breed,
-			gender,
-			photo_url:
-				"https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=400",
-			weight: 1.2,
-		});
-	};
-
-	return (
-		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-			<form
-				onSubmit={handleSubmit}
-				className="bg-white rounded-[3rem] w-full max-w-lg p-10 shadow-2xl animate-in zoom-in-95 duration-200"
-			>
-				<h3 className="text-3xl font-black mb-8">Новый питомец</h3>
-				<div className="space-y-6">
-					<div className="flex gap-4">
-						<button
-							type="button"
-							className="w-24 h-24 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-indigo-300 hover:text-indigo-400 transition-all"
-						>
-							<Camera size={24} />
-							<span className="text-[10px] font-black mt-1 uppercase">
-								Фото
-							</span>
-						</button>
-						<div className="flex-1 space-y-4">
-							<input
-								placeholder="Кличка"
-								required
-								className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none border border-transparent focus:border-indigo-200"
-								value={name}
-								onChange={(
-									e: React.ChangeEvent<HTMLInputElement>
-								) => setName(e.target.value)}
-							/>
-							<input
-								placeholder="Порода"
-								required
-								className="w-full p-4 bg-slate-50 rounded-2xl font-bold outline-none border border-transparent focus:border-indigo-200"
-								value={breed}
-								onChange={(
-									e: React.ChangeEvent<HTMLInputElement>
-								) => setBreed(e.target.value)}
-							/>
-						</div>
-					</div>
-					<div className="flex gap-2">
-						<button
-							type="button"
-							onClick={() => setGender("Мужской")}
-							className={`flex-1 py-4 rounded-2xl font-black text-sm transition-all ${
-								gender === "Мужской"
-									? "bg-indigo-600 text-white"
-									: "bg-slate-50 text-slate-400"
-							}`}
-						>
-							Мужской
-						</button>
-						<button
-							type="button"
-							onClick={() => setGender("Женский")}
-							className={`flex-1 py-4 rounded-2xl font-black text-sm transition-all ${
-								gender === "Женский"
-									? "bg-indigo-600 text-white"
-									: "bg-slate-50 text-slate-400"
-							}`}
-						>
-							Женский
-						</button>
-					</div>
-					<div className="pt-4 space-y-3">
-						<button
-							type="submit"
-							className="w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black shadow-xl active:scale-95 transition-all"
-						>
-							Создать профиль
-						</button>
-						<button
-							type="button"
-							onClick={onClose}
-							className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors"
-						>
-							Отмена
-						</button>
-					</div>
-				</div>
-			</form>
-		</div>
-	);
+	// This is now handled by AddPetForm component
+	// Keeping this for backwards compatibility if needed
+	return null;
 }
 
 // Заглушка для Globe, так как в lucide-react не всегда есть в списке быстрого импорта

@@ -121,3 +121,81 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+/* Sonner Toast Styles */
+:is(.dark) .sonner-toaster,
+.sonner-toaster {
+	--normal-bg: #ffffff;
+	--normal-text: #0f172a;
+	--normal-border: #e2e8f0;
+	--border-radius: 20px;
+	--success-bg: #ecfdf5;
+	--success-text: #065f46;
+	--success-border: #a7f3d0;
+}
+
+.sonner-toast {
+	@apply border-2 border-solid shadow-xl rounded-[20px] backdrop-blur-sm;
+	padding: 16px 20px;
+	font-weight: 600;
+	font-size: 14px;
+	letter-spacing: 0.3px;
+}
+
+.sonner-toast.sonner-success {
+	background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+	border-color: #c7d2fe;
+	color: #1e1b4b;
+	box-shadow: 0 20px 40px rgba(79, 57, 246, 0.2);
+	font-weight: 600;
+	letter-spacing: 0.3px;
+}
+
+.sonner-toast.sonner-error {
+	background-color: #fef2f2;
+	border-color: #fca5a5;
+	color: #7f1d1d;
+	box-shadow: 0 10px 25px rgba(239, 68, 68, 0.15);
+}
+
+.sonner-toast.sonner-info {
+	background-color: #f0f9ff;
+	border-color: #7dd3fc;
+	color: #0c2d6b;
+	box-shadow: 0 10px 25px rgba(59, 130, 246, 0.15);
+}
+
+.sonner-toast.sonner-warning {
+	background-color: #fffbeb;
+	border-color: #fde047;
+	color: #78350f;
+	box-shadow: 0 10px 25px rgba(234, 179, 8, 0.15);
+}
+
+.sonner-toast[data-type="success"] {
+	background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%) !important;
+	border-color: #c7d2fe !important;
+	color: #1e1b4b !important;
+	box-shadow: 0 20px 40px rgba(79, 57, 246, 0.2) !important;
+}
+
+.sonner-toast.sonner-success svg {
+	color: #4f39f6 !important;
+	width: 24px !important;
+	height: 24px !important;
+}
+
+.sonner-close-button {
+	background-color: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 12px;
+	transition: all 0.2s ease;
+	color: #64748b;
+}
+
+.sonner-close-button:hover {
+	background-color: rgba(79, 57, 246, 0.1);
+	color: #4f39f6;
+}
