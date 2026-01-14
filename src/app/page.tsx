@@ -666,21 +666,20 @@ export default function App() {
 
 			{/* MODALS */}
 			{modals.addPet && (
-				<AddPetModal
-					onClose={() => toggleModal("addPet", false)}
-					onSave={(p) => {
-						setPets([
-							...pets,
-							{
-								...p,
-								id: Date.now().toString(),
-								medical_history: [],
-								reminders: [],
-							},
-						]);
-						toggleModal("addPet", false);
-					}}
-				/>
+				<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+					<div className="bg-white rounded-[3rem] w-full max-w-lg p-10 shadow-2xl animate-in zoom-in-95 duration-200">
+						<div className="flex items-center justify-between mb-6">
+							<h3 className="text-3xl font-black">Новый питомец</h3>
+							<button onClick={() => toggleModal("addPet", false)} className="p-2 hover:bg-slate-100 rounded-xl">
+								<X size={24} />
+							</button>
+						</div>
+						<div>
+							{/* AddPetForm will add to mock store and close modal */}
+							<AddPetForm onClose={() => toggleModal("addPet", false)} />
+						</div>
+					</div>
+				</div>
 			)}
 			{modals.booking && (
 				<BookingModal
