@@ -1450,7 +1450,7 @@ function PostDetailModal({
 							...c,
 							liked: !c.liked,
 							likes: c.liked ? c.likes - 1 : c.likes + 1,
-						}
+					  }
 					: c
 			)
 		);
@@ -1465,12 +1465,13 @@ function PostDetailModal({
 							replies: [
 								...(c.replies || []),
 								{
-									id: Math.max(
-										...(c.replies?.map((r) => r.id) || [
-											0,
-										]),
-										0
-									) + 100,
+									id:
+										Math.max(
+											...(c.replies?.map((r) => r.id) || [
+												0,
+											]),
+											0
+										) + 100,
 									author: "Юрий",
 									text: replyText,
 									timestamp: "сейчас",
@@ -1478,7 +1479,7 @@ function PostDetailModal({
 									liked: false,
 								},
 							],
-						}
+					  }
 					: c
 			)
 		);
@@ -1499,10 +1500,10 @@ function PostDetailModal({
 											likes: r.liked
 												? r.likes - 1
 												: r.likes + 1,
-										}
+									  }
 									: r
 							),
-						}
+					  }
 					: c
 			)
 		);
@@ -1510,12 +1511,12 @@ function PostDetailModal({
 
 	return (
 		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-			<div className="bg-white rounded-[3rem] w-full max-w-5xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex">
+			<div className="bg-white rounded-[3rem] w-full max-w-7xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex">
 				{/* Left side - Image */}
-				<div className="hidden md:flex w-1/2 bg-slate-900 items-center justify-center relative">
+				<div className="hidden md:flex w-3/5 bg-slate-900 items-center justify-center relative">
 					<img
 						src={post.img}
-						className="w-full h-full object-cover"
+						className="w-full h-full object-cover aspect-square"
 						alt={post.text}
 					/>
 					<button
@@ -1527,7 +1528,7 @@ function PostDetailModal({
 				</div>
 
 				{/* Right side - Content & Comments */}
-				<div className="w-full md:w-1/2 flex flex-col h-[90vh] md:h-auto md:max-h-[90vh]">
+				<div className="w-full md:w-2/5 flex flex-col h-[90vh] md:h-auto md:max-h-[90vh]">
 					{/* Post Header */}
 					<div className="p-6 border-b border-slate-100 flex items-center justify-between">
 						<div className="flex items-center gap-3 flex-1">
@@ -1535,7 +1536,9 @@ function PostDetailModal({
 								{post.user[0]}
 							</div>
 							<div>
-								<p className="font-black text-sm">{post.user}</p>
+								<p className="font-black text-sm">
+									{post.user}
+								</p>
 								<p className="text-[10px] text-slate-400 font-bold uppercase">
 									питомец: {post.pet}
 								</p>
@@ -1617,7 +1620,9 @@ function PostDetailModal({
 															: "hover:text-slate-600"
 													}`}
 												>
-													{comment.liked ? "❤️" : "🤍"}{" "}
+													{comment.liked
+														? "❤️"
+														: "🤍"}{" "}
 													{comment.likes}
 												</button>
 												<button className="hover:text-slate-600 transition-colors">
@@ -1629,81 +1634,87 @@ function PostDetailModal({
 								</div>
 
 								{/* Replies */}
-								{comment.replies && comment.replies.length > 0 && (
-									<div className="ml-4 space-y-2">
-										{comment.expandedReplies ? (
-											comment.replies.map((reply) => (
-												<div
-													key={reply.id}
-													className="bg-slate-50 rounded-2xl p-4 opacity-90"
-												>
-													<div className="flex items-start gap-3">
-														<div className="w-7 h-7 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center font-bold text-emerald-600 text-[9px] flex-shrink-0">
-															{reply.author[0]}
-														</div>
-														<div className="flex-1">
-															<p className="font-black text-xs text-slate-800">
-																{reply.author}
-															</p>
-															<p className="text-xs text-slate-600 mt-1 leading-relaxed">
-																{reply.text}
-															</p>
-															<div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold">
-																<span>
+								{comment.replies &&
+									comment.replies.length > 0 && (
+										<div className="ml-4 space-y-2">
+											{comment.expandedReplies ? (
+												comment.replies.map((reply) => (
+													<div
+														key={reply.id}
+														className="bg-slate-50 rounded-2xl p-4 opacity-90"
+													>
+														<div className="flex items-start gap-3">
+															<div className="w-7 h-7 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center font-bold text-emerald-600 text-[9px] flex-shrink-0">
+																{
+																	reply
+																		.author[0]
+																}
+															</div>
+															<div className="flex-1">
+																<p className="font-black text-xs text-slate-800">
 																	{
-																		reply.timestamp
+																		reply.author
 																	}
-																</span>
-																<button
-																	onClick={() =>
-																		handleLikeReply(
-																			comment.id,
-																			reply.id
-																		)
-																	}
-																	className={`transition-colors ${
-																		reply.liked
-																			? "text-rose-500"
-																			: "hover:text-slate-600"
-																	}`}
-																>
-																	{reply.liked
-																		? "❤️"
-																		: "🤍"}{" "}
-																	{
-																		reply.likes
-																	}
-																</button>
+																</p>
+																<p className="text-xs text-slate-600 mt-1 leading-relaxed">
+																	{reply.text}
+																</p>
+																<div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold">
+																	<span>
+																		{
+																			reply.timestamp
+																		}
+																	</span>
+																	<button
+																		onClick={() =>
+																			handleLikeReply(
+																				comment.id,
+																				reply.id
+																			)
+																		}
+																		className={`transition-colors ${
+																			reply.liked
+																				? "text-rose-500"
+																				: "hover:text-slate-600"
+																		}`}
+																	>
+																		{reply.liked
+																			? "❤️"
+																			: "🤍"}{" "}
+																		{
+																			reply.likes
+																		}
+																	</button>
+																</div>
 															</div>
 														</div>
 													</div>
-												</div>
-											))
-										) : (
-											<button
-												onClick={() => {
-													setComments(
-														comments.map((c) =>
-															c.id ===
-															comment.id
-																? {
-																		...c,
-																		expandedReplies:
-																			true,
-																	}
-																: c
-														)
-													);
-												}}
-												className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
-											>
-												↳ Показать{" "}
-												{comment.replies.length}{" "}
-												ответ(ов)
-											</button>
-										)}
-									</div>
-								)}
+												))
+											) : (
+												<button
+													onClick={() => {
+														setComments(
+															comments.map((c) =>
+																c.id ===
+																comment.id
+																	? {
+																			...c,
+																			expandedReplies:
+																				true,
+																	  }
+																	: c
+															)
+														);
+													}}
+													className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+												>
+													↳ Показать{" "}
+													{comment.replies.length}{" "}
+													ответ(ов)
+												</button>
+											)}
+										</div>
+									)}
 							</div>
 						))}
 					</div>
@@ -1712,16 +1723,11 @@ function PostDetailModal({
 					<div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
 						<input
 							value={newComment}
-							onChange={(e) =>
-								setNewComment(e.target.value)
-							}
+							onChange={(e) => setNewComment(e.target.value)}
 							placeholder="Добавить комментарий..."
 							className="flex-1 bg-white border-2 border-slate-200 rounded-2xl px-4 py-2 text-xs outline-none focus:border-indigo-600 transition-colors"
 							onKeyPress={(e) => {
-								if (
-									e.key === "Enter" &&
-									!e.shiftKey
-								) {
+								if (e.key === "Enter" && !e.shiftKey) {
 									e.preventDefault();
 									handleAddComment();
 								}
