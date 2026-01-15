@@ -1353,7 +1353,402 @@ function ShopView({
 	);
 }
 
+// Post Detail Modal компонент
+function PostDetailModal({
+	post,
+	onClose,
+	onShare,
+}: {
+	post: {
+		id: number;
+		user: string;
+		pet: string;
+		text: string;
+		likes: number;
+		img: string;
+	};
+	onClose: () => void;
+	onShare: (postId: number) => void;
+}) {
+	const [comments, setComments] = useState<
+		Array<{
+			id: number;
+			author: string;
+			text: string;
+			timestamp: string;
+			likes: number;
+			liked: boolean;
+			replies?: Array<{
+				id: number;
+				author: string;
+				text: string;
+				timestamp: string;
+				likes: number;
+				liked: boolean;
+			}>;
+			expandedReplies?: boolean;
+		}>
+	>([
+		{
+			id: 1,
+			author: "Мария В.",
+			text: "Какой красавец! 😍 Сразу видно счастливого питомца.",
+			timestamp: "2 часа назад",
+			likes: 24,
+			liked: false,
+			replies: [
+				{
+					id: 101,
+					author: "Анна М.",
+					text: "Спасибо! Он очень благодарен 🐕",
+					timestamp: "1 час назад",
+					likes: 8,
+					liked: false,
+				},
+			],
+			expandedReplies: false,
+		},
+		{
+			id: 2,
+			author: "Иван Р.",
+			text: "Супер фото! Где вы это снимали?",
+			timestamp: "1 час назад",
+			likes: 12,
+			liked: false,
+			replies: [],
+			expandedReplies: false,
+		},
+	]);
+	const [newComment, setNewComment] = useState("");
+	const [liked, setLiked] = useState(false);
+
+	const handleAddComment = () => {
+		if (newComment.trim()) {
+			setComments([
+				...comments,
+				{
+					id: Math.max(...comments.map((c) => c.id), 0) + 1,
+					author: "Юрий",
+					text: newComment,
+					timestamp: "сейчас",
+					likes: 0,
+					liked: false,
+					replies: [],
+					expandedReplies: false,
+				},
+			]);
+			setNewComment("");
+			toast.success("Комментарий добавлен! 💬");
+		}
+	};
+
+	const handleLikeComment = (commentId: number) => {
+		setComments(
+			comments.map((c) =>
+				c.id === commentId
+					? {
+							...c,
+							liked: !c.liked,
+							likes: c.liked ? c.likes - 1 : c.likes + 1,
+						}
+					: c
+			)
+		);
+	};
+
+	const handleAddReply = (commentId: number, replyText: string) => {
+		setComments(
+			comments.map((c) =>
+				c.id === commentId
+					? {
+							...c,
+							replies: [
+								...(c.replies || []),
+								{
+									id: Math.max(
+										...(c.replies?.map((r) => r.id) || [
+											0,
+										]),
+										0
+									) + 100,
+									author: "Юрий",
+									text: replyText,
+									timestamp: "сейчас",
+									likes: 0,
+									liked: false,
+								},
+							],
+						}
+					: c
+			)
+		);
+		toast.success("Ответ добавлен! 💬");
+	};
+
+	const handleLikeReply = (commentId: number, replyId: number) => {
+		setComments(
+			comments.map((c) =>
+				c.id === commentId
+					? {
+							...c,
+							replies: c.replies?.map((r) =>
+								r.id === replyId
+									? {
+											...r,
+											liked: !r.liked,
+											likes: r.liked
+												? r.likes - 1
+												: r.likes + 1,
+										}
+									: r
+							),
+						}
+					: c
+			)
+		);
+	};
+
+	return (
+		<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+			<div className="bg-white rounded-[3rem] w-full max-w-5xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex">
+				{/* Left side - Image */}
+				<div className="hidden md:flex w-1/2 bg-slate-900 items-center justify-center relative">
+					<img
+						src={post.img}
+						className="w-full h-full object-cover"
+						alt={post.text}
+					/>
+					<button
+						onClick={onClose}
+						className="absolute top-4 left-4 p-2 bg-white/20 hover:bg-white/30 text-white rounded-xl backdrop-blur transition-all"
+					>
+						<X size={24} />
+					</button>
+				</div>
+
+				{/* Right side - Content & Comments */}
+				<div className="w-full md:w-1/2 flex flex-col h-[90vh] md:h-auto md:max-h-[90vh]">
+					{/* Post Header */}
+					<div className="p-6 border-b border-slate-100 flex items-center justify-between">
+						<div className="flex items-center gap-3 flex-1">
+							<div className="w-10 h-10 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center font-bold text-indigo-600 text-xs">
+								{post.user[0]}
+							</div>
+							<div>
+								<p className="font-black text-sm">{post.user}</p>
+								<p className="text-[10px] text-slate-400 font-bold uppercase">
+									питомец: {post.pet}
+								</p>
+							</div>
+						</div>
+						<button
+							onClick={() => onShare(post.id)}
+							className="text-slate-300 hover:text-slate-500 transition-colors md:hidden"
+						>
+							<Share2 size={20} />
+						</button>
+					</div>
+
+					{/* Post Content */}
+					<div className="p-6 border-b border-slate-100">
+						<p className="text-sm font-medium text-slate-700 leading-relaxed">
+							{post.text}
+						</p>
+					</div>
+
+					{/* Post Actions */}
+					<div className="p-4 border-b border-slate-100 flex items-center gap-4">
+						<button
+							onClick={() => setLiked(!liked)}
+							className={`flex items-center gap-2 font-bold transition-all ${
+								liked
+									? "text-rose-500 scale-110"
+									: "text-slate-400 hover:text-slate-600"
+							}`}
+						>
+							<Heart
+								size={18}
+								fill={liked ? "currentColor" : "none"}
+							/>
+							<span className="text-xs">
+								{post.likes + (liked ? 1 : 0)}
+							</span>
+						</button>
+						<button className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold transition-all">
+							<MessageSquare size={18} />
+							<span className="text-xs">{comments.length}</span>
+						</button>
+						<button
+							onClick={() => onShare(post.id)}
+							className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold transition-all ml-auto"
+						>
+							<Share2 size={18} />
+						</button>
+					</div>
+
+					{/* Comments Section */}
+					<div className="flex-1 overflow-y-auto p-6 space-y-4">
+						{comments.map((comment) => (
+							<div key={comment.id} className="space-y-2">
+								{/* Main Comment */}
+								<div className="bg-slate-50 rounded-2xl p-4">
+									<div className="flex items-start gap-3">
+										<div className="w-8 h-8 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center font-bold text-indigo-600 text-[10px] flex-shrink-0">
+											{comment.author[0]}
+										</div>
+										<div className="flex-1">
+											<p className="font-black text-xs text-slate-800">
+												{comment.author}
+											</p>
+											<p className="text-xs text-slate-600 mt-1 leading-relaxed">
+												{comment.text}
+											</p>
+											<div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold">
+												<span>{comment.timestamp}</span>
+												<button
+													onClick={() =>
+														handleLikeComment(
+															comment.id
+														)
+													}
+													className={`transition-colors ${
+														comment.liked
+															? "text-rose-500"
+															: "hover:text-slate-600"
+													}`}
+												>
+													{comment.liked ? "❤️" : "🤍"}{" "}
+													{comment.likes}
+												</button>
+												<button className="hover:text-slate-600 transition-colors">
+													Ответить
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+
+								{/* Replies */}
+								{comment.replies && comment.replies.length > 0 && (
+									<div className="ml-4 space-y-2">
+										{comment.expandedReplies ? (
+											comment.replies.map((reply) => (
+												<div
+													key={reply.id}
+													className="bg-slate-50 rounded-2xl p-4 opacity-90"
+												>
+													<div className="flex items-start gap-3">
+														<div className="w-7 h-7 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center font-bold text-emerald-600 text-[9px] flex-shrink-0">
+															{reply.author[0]}
+														</div>
+														<div className="flex-1">
+															<p className="font-black text-xs text-slate-800">
+																{reply.author}
+															</p>
+															<p className="text-xs text-slate-600 mt-1 leading-relaxed">
+																{reply.text}
+															</p>
+															<div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 font-bold">
+																<span>
+																	{
+																		reply.timestamp
+																	}
+																</span>
+																<button
+																	onClick={() =>
+																		handleLikeReply(
+																			comment.id,
+																			reply.id
+																		)
+																	}
+																	className={`transition-colors ${
+																		reply.liked
+																			? "text-rose-500"
+																			: "hover:text-slate-600"
+																	}`}
+																>
+																	{reply.liked
+																		? "❤️"
+																		: "🤍"}{" "}
+																	{
+																		reply.likes
+																	}
+																</button>
+															</div>
+														</div>
+													</div>
+												</div>
+											))
+										) : (
+											<button
+												onClick={() => {
+													setComments(
+														comments.map((c) =>
+															c.id ===
+															comment.id
+																? {
+																		...c,
+																		expandedReplies:
+																			true,
+																	}
+																: c
+														)
+													);
+												}}
+												className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+											>
+												↳ Показать{" "}
+												{comment.replies.length}{" "}
+												ответ(ов)
+											</button>
+										)}
+									</div>
+								)}
+							</div>
+						))}
+					</div>
+
+					{/* Comment Input */}
+					<div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+						<input
+							value={newComment}
+							onChange={(e) =>
+								setNewComment(e.target.value)
+							}
+							placeholder="Добавить комментарий..."
+							className="flex-1 bg-white border-2 border-slate-200 rounded-2xl px-4 py-2 text-xs outline-none focus:border-indigo-600 transition-colors"
+							onKeyPress={(e) => {
+								if (
+									e.key === "Enter" &&
+									!e.shiftKey
+								) {
+									e.preventDefault();
+									handleAddComment();
+								}
+							}}
+						/>
+						<button
+							onClick={handleAddComment}
+							className="px-4 py-2 bg-indigo-600 text-white rounded-2xl font-black text-xs hover:bg-indigo-700 transition-colors"
+						>
+							Отправить
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function SocialFeed({ onShare }: { onShare: (postId: number) => void }) {
+	const [selectedPost, setSelectedPost] = useState<{
+		id: number;
+		user: string;
+		pet: string;
+		text: string;
+		likes: number;
+		img: string;
+	} | null>(null);
 	const [liked, setLiked] = useState<Record<number, boolean>>({});
 	const posts = [
 		{
@@ -1396,7 +1791,8 @@ function SocialFeed({ onShare }: { onShare: (postId: number) => void }) {
 			{posts.map((post) => (
 				<div
 					key={post.id}
-					className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden hover:shadow-lg transition-shadow"
+					onClick={() => setSelectedPost(post)}
+					className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden hover:shadow-lg hover:border-indigo-200 transition-all cursor-pointer"
 				>
 					<div className="p-6 flex items-center justify-between">
 						<div className="flex items-center gap-3">
@@ -1411,7 +1807,10 @@ function SocialFeed({ onShare }: { onShare: (postId: number) => void }) {
 							</div>
 						</div>
 						<button
-							onClick={() => onShare(post.id)}
+							onClick={(e) => {
+								e.stopPropagation();
+								onShare(post.id);
+							}}
 							className="text-slate-300 hover:text-slate-500 transition-colors"
 						>
 							<Share2 size={18} />
@@ -1428,7 +1827,10 @@ function SocialFeed({ onShare }: { onShare: (postId: number) => void }) {
 						</p>
 						<div className="flex items-center gap-4">
 							<button
-								onClick={() => handleLike(post.id)}
+								onClick={(e) => {
+									e.stopPropagation();
+									handleLike(post.id);
+								}}
 								className={`flex items-center gap-2 font-bold transition-all ${
 									liked[post.id]
 										? "text-rose-500 scale-110"
@@ -1443,13 +1845,26 @@ function SocialFeed({ onShare }: { onShare: (postId: number) => void }) {
 								/>
 								{post.likes + (liked[post.id] ? 1 : 0)}
 							</button>
-							<button className="flex items-center gap-2 text-slate-400 font-bold">
+							<button
+								onClick={(e) => {
+									e.stopPropagation();
+								}}
+								className="flex items-center gap-2 text-slate-400 font-bold"
+							>
 								<MessageSquare size={20} /> 12
 							</button>
 						</div>
 					</div>
 				</div>
 			))}
+
+			{selectedPost && (
+				<PostDetailModal
+					post={selectedPost}
+					onClose={() => setSelectedPost(null)}
+					onShare={onShare}
+				/>
+			)}
 		</div>
 	);
 }
